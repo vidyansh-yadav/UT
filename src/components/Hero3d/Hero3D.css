@@ -1,0 +1,9 @@
+.hero3d{
+    width:100%;
+    height:500px;
+}
+
+.hero3d canvas{
+    width:100% !important;
+    height:100% !important;
+}
