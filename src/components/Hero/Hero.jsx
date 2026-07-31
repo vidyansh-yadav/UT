@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { gsap } from "gsap";
 
-import Hero3D from "../Hero3D/Hero3D";
+import Hero3D from "../Hero3d/Hero3D";
 import "./Hero.css";
 
 function Hero() {
