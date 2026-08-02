@@ -102,6 +102,27 @@
     name="viewport"
     content="width=device-width, initial-scale=1.0"
   />
+<!-- Browser -->
+
+<meta name="referrer" content="strict-origin-when-cross-origin">
+
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+<meta name="mobile-web-app-capable" content="yes">
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+
+<meta
+name="apple-mobile-web-app-status-bar-style"
+content="black-translucent">
+
+<meta
+name="apple-mobile-web-app-title"
+content="Unseen Termination">
+
+<meta
+name="apple-touch-fullscreen"
+content="yes">
 
   <title>
     Unseen Termination | Cyber Security & Threat Intelligence
@@ -159,6 +180,31 @@
     href="/favicon.svg"
     type="image/svg+xml"
   />
+  <!-- Manifest -->
+
+<link
+rel="manifest"
+href="/manifest.webmanifest">
+
+<!-- DNS -->
+
+<link
+rel="dns-prefetch"
+href="//fonts.googleapis.com">
+
+<link
+rel="dns-prefetch"
+href="//fonts.gstatic.com">
+
+<link
+rel="preconnect"
+href="https://fonts.googleapis.com">
+
+<link
+rel="preconnect"
+href="https://fonts.gstatic.com"
+crossorigin>
+
 
   <!-- OPEN GRAPH -->
 
@@ -219,7 +265,11 @@
 
 <body>
 
-  <div id="root"></div>
+  <div id="root"><script
+type="module"
+src="/src/main.jsx"
+defer>
+</script></div>
 
   <script
     type="module"

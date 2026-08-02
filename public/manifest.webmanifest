@@ -1,0 +1,26 @@
+{
+  "name": "Unseen Termination",
+  "short_name": "UT",
+
+  "description": "Cyber Security Platform",
+
+  "start_url": "/",
+
+  "display": "standalone",
+
+  "background_color": "#050505",
+
+  "theme_color": "#050505",
+
+  "orientation": "portrait",
+
+  "lang": "en",
+
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}
