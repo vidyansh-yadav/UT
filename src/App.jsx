@@ -9,7 +9,8 @@ import Services from "./components/Services/Services";
 import Team from "./components/Team/Team";
 import Dashboard from "./components/Dashboard/Dashboard";
 import ThreatMap from "./components/ThreatMap/ThreatMap";
-
+import WhyChoose from "./components/WhyChoose/WhyChoose";
+import Process from "./components/Process/Process";
 function App() {
 
     const [loading,setLoading]=useState(true);
@@ -24,6 +25,8 @@ function App() {
             <Hero/>
             <About/>
             <Services/>
+            <WhyChoose />
+            <Process />
             <Team/>
             <Dashboard />
             <ThreatMap />
