@@ -1,0 +1,20 @@
+/* TEAM */
+
+Project:
+Unseen Termination
+
+Developer:
+Vidyansh Yadav
+
+Technology:
+React
+Vite
+Three.js
+React Three Fiber
+GSAP
+
+Location:
+Faridabad, Haryana, India
+
+Website:
+https://ut-6fo9-git-main-vidyansh-yadavs-projects-17e3f9c3.vercel.app

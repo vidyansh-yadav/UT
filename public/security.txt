@@ -1,0 +1,11 @@
+Contact: mailto:vidyanshyadav4545@gmail.com
+
+Expires: 2027-12-31T23:59:59.000Z
+
+Preferred-Languages: en, hi
+
+Canonical:
+https://ut-6fo9-git-main-vidyansh-yadavs-projects-17e3f9c3.vercel.app/security.txt
+
+Policy:
+https://ut-6fo9-git-main-vidyansh-yadavs-projects-17e3f9c3.vercel.app
