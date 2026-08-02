@@ -8,7 +8,7 @@ export default function BloomEffects(){
 
             <Bloom
 
-                intensity={0.35}
+                intensity={0.55}
 
                 luminanceThreshold={0.25}
 

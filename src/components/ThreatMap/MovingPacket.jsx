@@ -1,6 +1,15 @@
 import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
+const colors=[
+"#ff003c",
+"#00cfff",
+"#ffffff",
+"#ff8a00"
+];
+
+const randomColor=
+colors[Math.floor(Math.random()*colors.length)];
 
 export default function MovingPacket({
   start = [0, 0, 0],
@@ -8,7 +17,7 @@ export default function MovingPacket({
   end = [1, 0, 0],
   speed = 0.18,
   delay = 0,
-  color = "#ffffff",
+  
 }) {
   const packetRef = useRef();
 
@@ -56,9 +65,22 @@ export default function MovingPacket({
       <sphereGeometry args={[0.035, 16, 16]} />
 
       <meshBasicMaterial
-        color={color}
-        toneMapped={false}
-      />
+
+color={randomColor}
+
+toneMapped={false}
+
+
+/>
     </mesh>
   );
+  <pointLight
+
+color={randomColor}
+
+distance={1}
+
+intensity={2}
+
+/>
 }

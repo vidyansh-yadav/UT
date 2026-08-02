@@ -1,35 +1,57 @@
 import { Html } from "@react-three/drei";
 
-export default function CountryLabels(){
+const countries = [
+  {
+    code: "IN",
+    name: "India",
+    status: "ONLINE",
+    className: "online",
+    position: [-0.55, 0.78, 0.72],
+  },
+  {
+    code: "US",
+    name: "USA",
+    status: "UNDER ATTACK",
+    className: "danger",
+    position: [-1.4, 0.55, -1.1],
+  },
+  {
+    code: "DE",
+    name: "Germany",
+    status: "PROTECTED",
+    className: "safe",
+    position: [1.55, 1.0, 0.7],
+  },
+  {
+    code: "SG",
+    name: "Singapore",
+    status: "ONLINE",
+    className: "online",
+    position: [-0.95, -0.65, 0.6],
+  },
+];
 
-    return(
-        <>
-
-        <Html position={[1.35,0.45,1.25]}>
-            <div className="country-label">
-                🇮🇳 India
+export default function CountryLabels() {
+  return (
+    <>
+      {countries.map((country) => (
+        <Html key={country.code} position={country.position}>
+          <div className={`country-label ${country.className}`}>
+            <div className="country-top">
+              <span className="country-dot"></span>
+              <span className="country-code">{country.code}</span>
             </div>
-        </Html>
 
-        <Html position={[-1.4,0.55,-1.1]}>
-            <div className="country-label">
-                🇺🇸 USA
+            <div className="country-name">
+              {country.name}
             </div>
-        </Html>
 
-        <Html position={[1.55,1.0,0.7]}>
-            <div className="country-label">
-                🇩🇪 Germany
+            <div className="country-status">
+              {country.status}
             </div>
+          </div>
         </Html>
-
-        <Html position={[-0.95,-0.65,.6]}>
-            <div className="country-label">
-                🇸🇬 Singapore
-            </div>
-        </Html>
-
-        </>
-    )
-
+      ))}
+    </>
+  );
 }

@@ -1,6 +1,11 @@
 import AttackArc from "./AttackArc";
 import MovingPacket from "./MovingPacket";
-
+const beamColors=[
+"#ff003c",
+"#ff3355",
+"#ff0055",
+"#ff4466"
+];
 const attacks = [
   {
     id: 1,
@@ -82,6 +87,7 @@ const attacks = [
     speed: 0.21,
     delay: 0.9,
   },
+  
 ];
 
 export default function AttackSystem() {
@@ -107,5 +113,6 @@ export default function AttackSystem() {
         </group>
       ))}
     </group>
+    
   );
 }

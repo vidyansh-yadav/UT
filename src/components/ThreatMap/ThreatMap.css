@@ -390,3 +390,81 @@
   }
 
 }
+/* ========= COUNTRY LABEL V6.5 ========= */
+
+.country-label{
+    min-width:110px;
+    padding:10px 12px;
+    background:rgba(9,10,18,.92);
+    border:1px solid rgba(255,0,60,.25);
+    border-radius:10px;
+    backdrop-filter:blur(10px);
+    color:#fff;
+    pointer-events:none;
+    user-select:none;
+    box-shadow:0 0 18px rgba(255,0,60,.12);
+}
+
+.country-top{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    margin-bottom:4px;
+}
+
+.country-dot{
+    width:7px;
+    height:7px;
+    border-radius:50%;
+    background:#ff003c;
+    animation:countryPulse 1.4s infinite;
+}
+
+.country-code{
+    font-size:.62rem;
+    letter-spacing:2px;
+    color:#aaa;
+}
+
+.country-name{
+    font-size:.82rem;
+    font-weight:700;
+}
+
+.country-status{
+    margin-top:3px;
+    font-size:.58rem;
+    letter-spacing:1px;
+    color:#888;
+}
+
+.country-label.online .country-dot{
+    background:#00ff95;
+}
+
+.country-label.danger .country-dot{
+    background:#ff003c;
+}
+
+.country-label.safe .country-dot{
+    background:#00cfff;
+}
+
+@keyframes countryPulse{
+
+0%{
+transform:scale(1);
+opacity:1;
+}
+
+50%{
+transform:scale(1.5);
+opacity:.4;
+}
+
+100%{
+transform:scale(1);
+opacity:1;
+}
+
+}

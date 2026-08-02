@@ -1,34 +1,48 @@
 import { QuadraticBezierLine } from "@react-three/drei";
 
 export default function AttackArc({
-  start,
-  mid,
-  end,
-  color = "#ff174f",
-}) {
-  return (
-    <>
-      {/* subtle outer glow */}
-      <QuadraticBezierLine
-        start={start}
-        mid={mid}
-        end={end}
-        color={color}
-        lineWidth={4}
-        transparent
-        opacity={0.08}
-      />
+    start,
+    mid,
+    end,
+    color="#ff003c"
+}){
 
-      {/* main attack beam */}
-      <QuadraticBezierLine
-        start={start}
-        mid={mid}
-        end={end}
-        color={color}
-        lineWidth={1.2}
-        transparent
-        opacity={0.75}
-      />
-    </>
-  );
+return(
+
+<>
+
+<QuadraticBezierLine
+start={start}
+mid={mid}
+end={end}
+lineWidth={7}
+color={color}
+transparent
+opacity={0.05}
+/>
+
+<QuadraticBezierLine
+start={start}
+mid={mid}
+end={end}
+lineWidth={2.3}
+color={color}
+transparent
+opacity={0.32}
+/>
+
+<QuadraticBezierLine
+start={start}
+mid={mid}
+end={end}
+lineWidth={0.8}
+color="#ffffff"
+transparent
+opacity={0.95}
+/>
+
+</>
+
+);
+
 }
