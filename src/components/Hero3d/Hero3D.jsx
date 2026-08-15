@@ -1,6 +1,6 @@
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
-
+import ResponsiveCamera from "./ResponsiveCamera";
 import Earth from "./Earth";
 import SpaceStars from "./Stars";
 
@@ -10,8 +10,18 @@ function Hero3D() {
   return (
     <div className="hero3d">
 
-      <Canvas camera={{ position: [0, 0, 6.2], fov: 38 }}>
-
+      <Canvas
+  camera={{
+    position: [0, 0, 6.8],
+    fov: 38
+  }}
+  dpr={[1, 1.5]}
+  gl={{
+    antialias: true,
+    alpha: true,
+    powerPreference: "high-performance"
+  }}
+>
   <ambientLight intensity={1.2}/>
 
 <directionalLight
@@ -39,7 +49,7 @@ enableZoom={false}
 autoRotate
 autoRotateSpeed={0.20}
 />
-
+    <ResponsiveCamera />
       </Canvas>
 
     </div>

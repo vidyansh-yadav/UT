@@ -7,64 +7,85 @@ import "./Hero.css";
 function Hero() {
   const heroRef = useRef(null);
 
-  // Hero Load Animation
   useEffect(() => {
-    const tl = gsap.timeline();
-
-    tl.from(".tag", {
-      y: -40,
-      opacity: 0,
-      duration: 0.8,
-    })
-      .from(
+    const ctx = gsap.context(() => {
+      const items = [
+        ".tag",
         ".hero-title",
-        {
-          y: 80,
-          opacity: 0,
-          duration: 1,
-        },
-        "-=0.4"
-      )
-      .from(
         ".hero-text",
-        {
-          y: 50,
-          opacity: 0,
-          duration: 0.8,
-        },
-        "-=0.5"
-      )
-      .from(
         ".hero-buttons",
-        {
-          y: 40,
-          opacity: 0,
-          duration: 0.8,
-        },
-        "-=0.4"
-      )
-      .from(
         ".hero-stats",
-        {
-          y: 50,
-          opacity: 0,
-          duration: 0.8,
+      ];
+
+      gsap.set(items, {
+        y: 24,
+        opacity: 1,
+      });
+
+      const tl = gsap.timeline({
+        defaults: {
+          ease: "power3.out",
         },
-        "-=0.4"
-      );
+      });
+
+      tl.to(".tag", {
+        y: 0,
+        duration: 0.55,
+      })
+        .to(
+          ".hero-title",
+          {
+            y: 0,
+            duration: 0.7,
+          },
+          "-=0.25"
+        )
+        .to(
+          ".hero-text",
+          {
+            y: 0,
+            duration: 0.6,
+          },
+          "-=0.25"
+        )
+        .to(
+          ".hero-buttons",
+          {
+            y: 0,
+            duration: 0.55,
+          },
+          "-=0.2"
+        )
+        .to(
+          ".hero-stats",
+          {
+            y: 0,
+            duration: 0.55,
+          },
+          "-=0.2"
+        );
+    }, heroRef);
+
+    return () => ctx.revert();
   }, []);
 
-  // Mouse Parallax
+  /* Desktop mouse parallax only */
   useEffect(() => {
-    const move = (e) => {
-      const x = (e.clientX / window.innerWidth - 0.5) * 30;
-      const y = (e.clientY / window.innerHeight - 0.5) * 30;
+    const move = (event) => {
+      if (window.innerWidth <= 1100) return;
+
+      const x =
+        (event.clientX / window.innerWidth - 0.5) * 12;
+
+      const y =
+        (event.clientY / window.innerHeight - 0.5) * 8;
 
       gsap.to(".hero-right", {
         x,
         y,
         duration: 1,
         ease: "power3.out",
+        overwrite: true,
       });
     };
 
@@ -72,51 +93,79 @@ function Hero() {
 
     return () => {
       window.removeEventListener("mousemove", move);
+
+      gsap.set(".hero-right", {
+        x: 0,
+        y: 0,
+      });
     };
   }, []);
 
   return (
-    <section className="hero" ref={heroRef} id="hero">
-      <div className="cyber-grid"></div>
+    <section
+      ref={heroRef}
+      className="hero"
+      id="hero"
+      aria-labelledby="hero-heading"
+    >
+
+      <div className="cyber-grid" />
 
       <div className="particles">
-        <span></span>
-        <span></span>
-        <span></span>
-        <span></span>
-        <span></span>
-        <span></span>
-        <span></span>
-        <span></span>
+        <span />
+        <span />
+        <span />
+        <span />
+        <span />
+        <span />
+        <span />
+        <span />
       </div>
 
-      <div className="scan-line"></div>
+      <div className="scan-line" />
+
+      {/* ================= TEXT ================= */}
 
       <div className="hero-left">
+
         <span className="tag">
           ELITE CYBER SECURITY
         </span>
 
-        <h1 className="hero-title">
+        <h1
+          id="hero-heading"
+          className="hero-title"
+        >
           WE SEE WHAT
           <br />
           <span>OTHERS DON'T.</span>
         </h1>
 
-        <p className="hero-text">
-          Protect your business with advanced penetration testing,
-          red team operations, digital forensics and threat intelligence.
+        <p
+          id="hero-description"
+          className="hero-text"
+        >
+          Protect your business with advanced
+          penetration testing, red team operations,
+          digital forensics and threat intelligence.
         </p>
 
         <div className="hero-buttons">
-          <button className="btn-primary">
+
+          <button
+            className="btn-primary"
+            type="button"
+          >
             Get Started
           </button>
 
-          <button className="btn-outline">
+          <button
+            className="btn-outline"
+            type="button"
+          >
             Learn More
           </button>
-       
+
         </div>
 
         <div className="hero-stats">
@@ -140,13 +189,16 @@ function Hero() {
 
       </div>
 
+
+      {/* ================= EARTH ================= */}
+
       <div className="hero-right">
 
-    <div className="hero-glow"></div>
+        <div className="hero-glow" />
 
-    <Hero3D />
+        <Hero3D />
 
-</div>
+      </div>
 
     </section>
   );
