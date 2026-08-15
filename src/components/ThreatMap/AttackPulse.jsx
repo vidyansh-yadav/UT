@@ -2,34 +2,41 @@ import { Sphere } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useRef } from "react";
 
-export default function AttackPulse(){
+export default function AttackPulse({
+  position = [0, 0, 0],
+  color = "#ff003c",
+}) {
+  const pulse = useRef();
 
-const pulse=useRef();
+  useFrame(({ clock }) => {
+    if (!pulse.current) return;
 
-useFrame(({clock})=>{
+    const t = clock.elapsedTime;
 
-const s=0.08+Math.sin(clock.elapsedTime*3)*0.02;
+    const scale =
+      1 + Math.sin(t * 4) * 0.2;
 
-pulse.current.scale.set(s,s,s);
+    pulse.current.scale.set(scale, scale, scale);
 
-});
+    pulse.current.rotation.y += 0.02;
 
-return(
+    if (pulse.current.material) {
+      pulse.current.material.opacity =
+        0.35 + Math.sin(t * 4) * 0.15;
+    }
+  });
 
-<Sphere
-ref={pulse}
-args={[1,16,16]}
-position={[0.9,.45,1]}
->
-
-<meshBasicMaterial
-
-color="#ff003c"
-
-/>
-
-</Sphere>
-
-)
-
+  return (
+    <Sphere
+      ref={pulse}
+      args={[0.03, 24, 24]}
+      position={position}
+    >
+      <meshBasicMaterial
+        color={color}
+        transparent
+        opacity={0.4}
+      />
+    </Sphere>
+  );
 }

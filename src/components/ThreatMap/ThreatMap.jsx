@@ -8,7 +8,7 @@ import Globe from "./Globe";
 import CameraRig from "./CameraRig";
 import BloomEffects from "./Bloom";
 import AttackSystem from "./AttackSystem";
-import MovingPacket from "./MovingPacket";
+
 export default function ThreatMap() {
   return (
     <section className="threat-map" id="threat-map">
@@ -51,7 +51,7 @@ export default function ThreatMap() {
               position={[-3, 2, 2]}
               intensity={0.4}
             />
-
+  
             <Globe />
 
             <AttackSystem />

@@ -8,9 +8,9 @@ export default function BloomEffects(){
 
             <Bloom
 
-                intensity={0.55}
+                intensity={0.8}
 
-                luminanceThreshold={0.25}
+                luminanceThreshold={0.1}
 
                 mipmapBlur
 

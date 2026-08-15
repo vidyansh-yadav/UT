@@ -1,10 +1,11 @@
 import AttackArc from "./AttackArc";
 import MovingPacket from "./MovingPacket";
-const beamColors=[
-"#ff003c",
-"#ff3355",
-"#ff0055",
-"#ff4466"
+import AttackPulse from "./AttackPulse";
+const beamColors = [
+    "#ff003c",
+    "#ff3355",
+    "#ff4466",
+    "#ff0055"
 ];
 const attacks = [
   {
@@ -95,21 +96,30 @@ export default function AttackSystem() {
     <group>
       {attacks.map((attack) => (
         <group key={attack.id}>
-
-          <AttackArc
-            start={attack.start}
-            mid={attack.mid}
-            end={attack.end}
-          />
+<AttackArc
+    start={attack.start}
+    mid={attack.mid}
+    end={attack.end}
+    color={
+        beamColors[
+            attack.id % beamColors.length
+        ]
+    }
+/>
 
           <MovingPacket
-            start={attack.start}
-            mid={attack.mid}
-            end={attack.end}
-            speed={attack.speed}
-            delay={attack.delay}
-          />
-
+    start={attack.start}
+    mid={attack.mid}
+    end={attack.end}
+    speed={
+        attack.speed +
+        Math.random() * 0.05
+    }
+    delay={attack.delay}
+/>
+ <AttackPulse
+      position={attack.end}
+    />
         </group>
       ))}
     </group>
