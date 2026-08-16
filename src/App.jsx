@@ -11,6 +11,7 @@ import Dashboard from "./components/Dashboard/Dashboard";
 import ThreatMap from "./components/ThreatMap/ThreatMap";
 import WhyChoose from "./components/WhyChoose/WhyChoose";
 import Process from "./components/Process/Process";
+import CyberOperator from "./components/CyberOperator/CyberOperator";
 function App() {
 
     const [loading,setLoading]=useState(true);
@@ -30,6 +31,7 @@ function App() {
             <Team/>
             <Dashboard />
             <ThreatMap />
+            <CyberOperator />
         </>
     )
 }

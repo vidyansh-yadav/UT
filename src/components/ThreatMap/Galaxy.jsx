@@ -5,7 +5,7 @@ export default function Galaxy(){
 
     const texture=useLoader(
         THREE.TextureLoader,
-        "/images/space.jpg"
+        "/images/space1.jpg"
     );
 
     return(
