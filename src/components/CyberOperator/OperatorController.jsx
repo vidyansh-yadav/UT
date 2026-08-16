@@ -2,10 +2,23 @@ import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 
+const PHASES = {
+  WALK: "walk",
+  SIT: "sit",
+  TYPING: "typing",
+  STANDBY: "standby",
+};
+
+const WALK_DURATION = 4.2;
+const SIT_DURATION = 2.25;
+
 export default function OperatorController({
   scene,
   animations = [],
   active = false,
+  running = false,
+  replayKey = 0,
+  sequenceRef,
 }) {
   const mixer = useMemo(
     () => (scene ? new THREE.AnimationMixer(scene) : null),
@@ -14,18 +27,19 @@ export default function OperatorController({
 
   const actions = useRef({});
   const currentAction = useRef(null);
-  const started = useRef(false);
+  const elapsedRef = useRef(0);
+  const lastPhase = useRef(PHASES.STANDBY);
+  const initializedRef = useRef(false);
 
-  // --------------------------------------------------
-  // FIND ANIMATIONS
-  // --------------------------------------------------
   useEffect(() => {
-    if (!mixer || !animations.length) return;
+    if (!mixer) return;
 
     const actionMap = {};
 
     animations.forEach((clip) => {
-      const name = clip.name.toLowerCase().replace(/[\s_-]+/g, "");
+      const name = clip.name
+        .toLowerCase()
+        .replace(/[\s_-]+/g, "");
 
       let key = null;
 
@@ -35,26 +49,20 @@ export default function OperatorController({
         name.includes("locomotion")
       ) {
         key = "walk";
-      }
-
-      if (
+      } else if (
         name.includes("sit") ||
         name.includes("sitting") ||
         name.includes("seated")
       ) {
         key = "sit";
-      }
-
-      if (
+      } else if (
         name.includes("typing") ||
         name.includes("type") ||
         name.includes("computer") ||
         name.includes("laptop")
       ) {
         key = "type";
-      }
-
-      if (
+      } else if (
         name.includes("idle") ||
         name.includes("standing") ||
         name === "stand"
@@ -66,19 +74,15 @@ export default function OperatorController({
         const action = mixer.clipAction(clip);
 
         action.enabled = true;
-        action.clampWhenFinished = false;
+        action.clampWhenFinished = true;
+        action.zeroSlopeAtStart = true;
+        action.zeroSlopeAtEnd = true;
 
         actionMap[key] = action;
       }
     });
 
     actions.current = actionMap;
-
-    // DEBUG
-    console.log(
-      "Operator animations:",
-      animations.map((clip) => clip.name)
-    );
 
     return () => {
       mixer.stopAllAction();
@@ -88,28 +92,26 @@ export default function OperatorController({
     };
   }, [mixer, animations, scene]);
 
-  // --------------------------------------------------
-  // PLAY ACTION
-  // --------------------------------------------------
-  const play = (name, fade = 0.35, loop = true) => {
+  const stopCurrent = () => {
+    if (!currentAction.current) return;
+
+    currentAction.current.fadeOut(0.22);
+    currentAction.current = null;
+  };
+
+  const play = (name, fade = 0.28, loop = true) => {
     const next = actions.current[name];
 
-    if (!next) {
-      console.warn(`Operator animation "${name}" not found.`);
-      return false;
-    }
+    if (!next) return false;
 
-    if (currentAction.current === next) {
-      return true;
-    }
+    if (currentAction.current === next) return true;
 
     next.reset();
-
+    next.enabled = true;
     next.setLoop(
       loop ? THREE.LoopRepeat : THREE.LoopOnce,
       loop ? Infinity : 1
     );
-
     next.fadeIn(fade);
     next.play();
 
@@ -118,68 +120,133 @@ export default function OperatorController({
     }
 
     currentAction.current = next;
-
     return true;
   };
 
-  // --------------------------------------------------
-  // CINEMATIC SEQUENCE
-  // --------------------------------------------------
+  const setPhase = (phase) => {
+    if (lastPhase.current === phase) return;
+
+    lastPhase.current = phase;
+
+    if (phase === PHASES.WALK) {
+      play(actions.current.walk ? "walk" : "idle", 0.3, true);
+    } else if (phase === PHASES.SIT) {
+      play(actions.current.sit ? "sit" : "idle", 0.35, false);
+    } else if (phase === PHASES.TYPING) {
+      play(actions.current.type ? "type" : "idle", 0.4, true);
+    } else {
+      play(actions.current.idle || actions.current.walk ? "idle" : "walk");
+    }
+  };
+
   useEffect(() => {
-    if (!active || started.current) return;
-    if (!scene || !animations.length) return;
+    elapsedRef.current = 0;
+    lastPhase.current = PHASES.STANDBY;
+    initializedRef.current = false;
 
-    started.current = true;
+    if (!scene || !mixer) return;
 
-    const available = actions.current;
+    mixer.stopAllAction();
+    currentAction.current = null;
 
-    // -----------------------------------------------
-    // STEP 1 — WALK
-    // -----------------------------------------------
-    if (available.walk) {
-      play("walk", 0.25, true);
-    } else if (available.idle) {
-      play("idle", 0.25, true);
+    scene.position.set(-1.85, -1.25, 1.35);
+    scene.rotation.set(0, Math.PI, 0);
+
+    if (sequenceRef?.current) {
+      sequenceRef.current.phase = PHASES.STANDBY;
+      sequenceRef.current.progress = 0;
+      sequenceRef.current.elapsed = 0;
+    }
+  }, [replayKey, scene, mixer, sequenceRef]);
+
+  useFrame((_, delta) => {
+    if (!mixer || !scene) return;
+
+    const safeDelta = Math.min(delta, 0.033);
+
+    if (active && running) {
+      elapsedRef.current += safeDelta;
     }
 
-    // -----------------------------------------------
-    // STEP 2 — SIT
-    // -----------------------------------------------
-    const sitTimer = setTimeout(() => {
-      if (available.sit) {
-        play("sit", 0.45, false);
-      }
-    }, 4200);
+    const elapsed = elapsedRef.current;
 
-    // -----------------------------------------------
-    // STEP 3 — TYPE
-    // -----------------------------------------------
-    const typeTimer = setTimeout(() => {
-      if (available.type) {
-        play("type", 0.45, true);
-      } else if (available.idle) {
-        // fallback
-        play("idle", 0.45, true);
+    let phase = PHASES.STANDBY;
+    let progress = 0;
 
-        console.warn(
-          "No typing animation found inside operator.glb"
+    if (active && elapsed > 0) {
+      if (elapsed < WALK_DURATION) {
+        phase = PHASES.WALK;
+        progress = elapsed / WALK_DURATION;
+      } else if (elapsed < WALK_DURATION + SIT_DURATION) {
+        phase = PHASES.SIT;
+        progress =
+          (elapsed - WALK_DURATION) / SIT_DURATION;
+      } else {
+        phase = PHASES.TYPING;
+        progress = Math.min(
+          1,
+          (elapsed - WALK_DURATION - SIT_DURATION) / 1.5
         );
       }
-    }, 6500);
+    }
 
-    return () => {
-      clearTimeout(sitTimer);
-      clearTimeout(typeTimer);
-    };
-  }, [active, scene, animations]);
+    setPhase(phase);
 
-  // --------------------------------------------------
-  // UPDATE MIXER
-  // --------------------------------------------------
-  useFrame((_, delta) => {
-    if (!mixer) return;
+    if (sequenceRef?.current) {
+      sequenceRef.current.phase = phase;
+      sequenceRef.current.progress = THREE.MathUtils.clamp(
+        progress,
+        0,
+        1
+      );
+      sequenceRef.current.elapsed = elapsed;
+    }
 
-    mixer.update(Math.min(delta, 0.05));
+    // Keep the character on a controlled cinematic path.
+    // This prevents root-motion clips from pushing the operator
+    // through the desk/monitor.
+    if (phase === PHASES.WALK) {
+      const p = THREE.MathUtils.smoothstep(progress, 0, 1);
+
+      scene.position.x = THREE.MathUtils.lerp(
+        -1.85,
+        0,
+        p
+      );
+
+      scene.position.z = THREE.MathUtils.lerp(
+        1.35,
+        0.03,
+        p
+      );
+
+      scene.position.y = -1.25;
+      scene.rotation.y = Math.PI;
+    } else if (phase === PHASES.SIT) {
+      scene.position.x = THREE.MathUtils.lerp(
+        scene.position.x,
+        0,
+        0.18
+      );
+
+      scene.position.z = THREE.MathUtils.lerp(
+        scene.position.z,
+        0.03,
+        0.18
+      );
+
+      scene.position.y = -1.25;
+      scene.rotation.y = Math.PI;
+    } else if (phase === PHASES.TYPING) {
+      scene.position.x = 0;
+      scene.position.z = 0.03;
+      scene.position.y = -1.25;
+      scene.rotation.y = Math.PI;
+    }
+
+    if (running) {
+      mixer.update(safeDelta);
+    }
   });
 
   return null;
