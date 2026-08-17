@@ -2,23 +2,22 @@ import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 
-const PHASES = {
-  WALK: "walk",
-  SIT: "sit",
-  TYPING: "typing",
-  STANDBY: "standby",
-};
+const FLOOR_Y = -1.27;
 
-const WALK_DURATION = 4.2;
-const SIT_DURATION = 2.25;
+// Safe cinematic path: it approaches the workstation from the SIDE,
+// never through the desk/monitor/CPU. The final point is the chair seat.
+const START = new THREE.Vector3(0, FLOOR_Y, 2.35);
+const APPROACH = new THREE.Vector3(1.55, FLOOR_Y, 1.25);
+const CHAIR = new THREE.Vector3(0.15, FLOOR_Y, 0.38);
 
 export default function OperatorController({
   scene,
   animations = [],
   active = false,
-  running = false,
+  playing = false,
   replayKey = 0,
-  sequenceRef,
+  root = null,
+  onPhaseChange,
 }) {
   const mixer = useMemo(
     () => (scene ? new THREE.AnimationMixer(scene) : null),
@@ -27,33 +26,34 @@ export default function OperatorController({
 
   const actions = useRef({});
   const currentAction = useRef(null);
-  const elapsedRef = useRef(0);
-  const lastPhase = useRef(PHASES.STANDBY);
-  const initializedRef = useRef(false);
+  const started = useRef(false);
+  const phaseRef = useRef("idle");
+  const pathRef = useRef({
+    from: START.clone(),
+    to: APPROACH.clone(),
+    elapsed: 0,
+    duration: 2.8,
+    stage: 0,
+  });
+
+  const setPhase = (next) => {
+    if (phaseRef.current === next) return;
+    phaseRef.current = next;
+    onPhaseChange?.(next);
+  };
 
   useEffect(() => {
-    if (!mixer) return;
+    if (!mixer || !animations.length) return;
 
     const actionMap = {};
 
     animations.forEach((clip) => {
-      const name = clip.name
-        .toLowerCase()
-        .replace(/[\s_-]+/g, "");
-
+      const name = clip.name.toLowerCase().replace(/[\s_-]+/g, "");
       let key = null;
 
-      if (
-        name.includes("walk") ||
-        name.includes("walking") ||
-        name.includes("locomotion")
-      ) {
+      if (name.includes("walk") || name.includes("walking") || name.includes("locomotion")) {
         key = "walk";
-      } else if (
-        name.includes("sit") ||
-        name.includes("sitting") ||
-        name.includes("seated")
-      ) {
+      } else if (name.includes("sit") || name.includes("sitting") || name.includes("seated")) {
         key = "sit";
       } else if (
         name.includes("typing") ||
@@ -72,17 +72,15 @@ export default function OperatorController({
 
       if (key && !actionMap[key]) {
         const action = mixer.clipAction(clip);
-
         action.enabled = true;
-        action.clampWhenFinished = true;
-        action.zeroSlopeAtStart = true;
-        action.zeroSlopeAtEnd = true;
-
+        action.clampWhenFinished = key === "sit";
+        action.setEffectiveWeight(1);
         actionMap[key] = action;
       }
     });
 
     actions.current = actionMap;
+    console.log("Operator animations:", animations.map((clip) => clip.name));
 
     return () => {
       mixer.stopAllAction();
@@ -92,28 +90,15 @@ export default function OperatorController({
     };
   }, [mixer, animations, scene]);
 
-  const stopCurrent = () => {
-    if (!currentAction.current) return;
-
-    currentAction.current.fadeOut(0.22);
-    currentAction.current = null;
-  };
-
-  const play = (name, fade = 0.28, loop = true) => {
+  const play = (name, fade = 0.3, loop = true) => {
     const next = actions.current[name];
-
     if (!next) return false;
-
     if (currentAction.current === next) return true;
 
     next.reset();
-    next.enabled = true;
-    next.setLoop(
-      loop ? THREE.LoopRepeat : THREE.LoopOnce,
-      loop ? Infinity : 1
-    );
-    next.fadeIn(fade);
-    next.play();
+    next.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, loop ? Infinity : 1);
+    next.clampWhenFinished = !loop;
+    next.fadeIn(fade).play();
 
     if (currentAction.current) {
       currentAction.current.fadeOut(fade);
@@ -123,130 +108,108 @@ export default function OperatorController({
     return true;
   };
 
-  const setPhase = (phase) => {
-    if (lastPhase.current === phase) return;
+  const resetSequence = () => {
+    started.current = false;
+    phaseRef.current = "idle";
+    pathRef.current = {
+      from: START.clone(),
+      to: APPROACH.clone(),
+      elapsed: 0,
+      duration: 2.8,
+      stage: 0,
+    };
 
-    lastPhase.current = phase;
-
-    if (phase === PHASES.WALK) {
-      play(actions.current.walk ? "walk" : "idle", 0.3, true);
-    } else if (phase === PHASES.SIT) {
-      play(actions.current.sit ? "sit" : "idle", 0.35, false);
-    } else if (phase === PHASES.TYPING) {
-      play(actions.current.type ? "type" : "idle", 0.4, true);
-    } else {
-      play(actions.current.idle || actions.current.walk ? "idle" : "walk");
+    if (root?.current) {
+      root.current.position.copy(START);
+      root.current.rotation.y = Math.PI;
     }
+
+    mixer?.stopAllAction();
+    currentAction.current = null;
   };
 
   useEffect(() => {
-    elapsedRef.current = 0;
-    lastPhase.current = PHASES.STANDBY;
-    initializedRef.current = false;
+    if (replayKey > 0) resetSequence();
+  }, [replayKey]);
 
-    if (!scene || !mixer) return;
+  useEffect(() => {
+    if (!active || !playing || started.current) return;
+    if (!scene || !animations.length || !root?.current) return;
 
-    mixer.stopAllAction();
-    currentAction.current = null;
+    started.current = true;
+    resetSequence();
+    started.current = true;
 
-    scene.position.set(-1.85, -1.25, 1.35);
-    scene.rotation.set(0, Math.PI, 0);
+    setPhase("walk");
+    play("walk", 0.25, true) || play("idle", 0.25, true);
+  }, [active, playing, replayKey, scene, animations, root]);
 
-    if (sequenceRef?.current) {
-      sequenceRef.current.phase = PHASES.STANDBY;
-      sequenceRef.current.progress = 0;
-      sequenceRef.current.elapsed = 0;
+  useEffect(() => {
+    if (active && !playing && currentAction.current) {
+      currentAction.current.paused = true;
+    } else if (playing && currentAction.current) {
+      currentAction.current.paused = false;
     }
-  }, [replayKey, scene, mixer, sequenceRef]);
+  }, [playing, active]);
 
   useFrame((_, delta) => {
-    if (!mixer || !scene) return;
+    if (!mixer || !root?.current) return;
 
-    const safeDelta = Math.min(delta, 0.033);
+    const dt = Math.min(delta, 0.033);
 
-    if (active && running) {
-      elapsedRef.current += safeDelta;
-    }
+    if (playing && active) {
+      const path = pathRef.current;
+      path.elapsed += dt;
 
-    const elapsed = elapsedRef.current;
+      if (path.stage === 0) {
+        const t = THREE.MathUtils.clamp(path.elapsed / path.duration, 0, 1);
+        const eased = t * t * (3 - 2 * t);
+        root.current.position.lerpVectors(path.from, path.to, eased);
+        root.current.rotation.y = THREE.MathUtils.lerp(Math.PI, Math.PI * 0.5, eased);
 
-    let phase = PHASES.STANDBY;
-    let progress = 0;
+        if (t >= 1) {
+          path.stage = 1;
+          path.from.copy(APPROACH);
+          path.to.copy(CHAIR);
+          path.elapsed = 0;
+          path.duration = 1.9;
+        }
+      } else if (path.stage === 1) {
+        const t = THREE.MathUtils.clamp(path.elapsed / path.duration, 0, 1);
+        const eased = t * t * (3 - 2 * t);
+        root.current.position.lerpVectors(path.from, path.to, eased);
+        root.current.rotation.y = THREE.MathUtils.lerp(Math.PI * 0.5, Math.PI, eased);
 
-    if (active && elapsed > 0) {
-      if (elapsed < WALK_DURATION) {
-        phase = PHASES.WALK;
-        progress = elapsed / WALK_DURATION;
-      } else if (elapsed < WALK_DURATION + SIT_DURATION) {
-        phase = PHASES.SIT;
-        progress =
-          (elapsed - WALK_DURATION) / SIT_DURATION;
+        if (t >= 1) {
+          path.stage = 2;
+          path.elapsed = 0;
+          setPhase("sit");
+          play("sit", 0.4, false) || play("idle", 0.35, true);
+        }
+      } else if (path.stage === 2) {
+        // Lock the character exactly on the chair. This prevents root-motion
+        // from moving him through the chair or desk during the sit animation.
+        root.current.position.copy(CHAIR);
+        root.current.rotation.y = Math.PI;
+
+        // Stay seated at the workstation. The terminal screen continues
+        // its cyber-operation visual, while the character remains locked
+        // to the chair instead of standing back up.
+        if (path.elapsed >= 1.15) {
+          path.stage = 3;
+        }
       } else {
-        phase = PHASES.TYPING;
-        progress = Math.min(
-          1,
-          (elapsed - WALK_DURATION - SIT_DURATION) / 1.5
-        );
+        // Final seated workstation state.
+        root.current.position.copy(CHAIR);
+        root.current.rotation.y = Math.PI;
       }
     }
 
-    setPhase(phase);
+    // Remove GLTF object-level root motion. The outer group is the only
+    // object allowed to translate in the cinematic path.
+    scene.position.set(0, 0, 0);
 
-    if (sequenceRef?.current) {
-      sequenceRef.current.phase = phase;
-      sequenceRef.current.progress = THREE.MathUtils.clamp(
-        progress,
-        0,
-        1
-      );
-      sequenceRef.current.elapsed = elapsed;
-    }
-
-    // Keep the character on a controlled cinematic path.
-    // This prevents root-motion clips from pushing the operator
-    // through the desk/monitor.
-    if (phase === PHASES.WALK) {
-      const p = THREE.MathUtils.smoothstep(progress, 0, 1);
-
-      scene.position.x = THREE.MathUtils.lerp(
-        -1.85,
-        0,
-        p
-      );
-
-      scene.position.z = THREE.MathUtils.lerp(
-        1.35,
-        0.03,
-        p
-      );
-
-      scene.position.y = -1.25;
-      scene.rotation.y = Math.PI;
-    } else if (phase === PHASES.SIT) {
-      scene.position.x = THREE.MathUtils.lerp(
-        scene.position.x,
-        0,
-        0.18
-      );
-
-      scene.position.z = THREE.MathUtils.lerp(
-        scene.position.z,
-        0.03,
-        0.18
-      );
-
-      scene.position.y = -1.25;
-      scene.rotation.y = Math.PI;
-    } else if (phase === PHASES.TYPING) {
-      scene.position.x = 0;
-      scene.position.z = 0.03;
-      scene.position.y = -1.25;
-      scene.rotation.y = Math.PI;
-    }
-
-    if (running) {
-      mixer.update(safeDelta);
-    }
+    mixer.update(dt);
   });
 
   return null;

@@ -1,101 +1,259 @@
-import { Html, useGLTF } from "@react-three/drei";
-import { useEffect, useMemo, useRef } from "react";
+import { OrbitControls, useGLTF } from "@react-three/drei";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 
 import OperatorController from "./OperatorController";
 
-function TerminalScreen() {
+const FLOOR_Y = -1.27;
+const DESK_Z = -1.25;
+const CHAIR_Z = 0.38;
+
+const OPERATOR_MODEL = "/models/operator/operator.glb";
+const CHAIR_MODEL = "/models/operator/gaming-chair.glb";
+
+/* -------------------------------------------------------
+   TERMINAL SCREEN
+------------------------------------------------------- */
+
+function useTerminalTexture() {
+  return useMemo(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1200;
+    canvas.height = 760;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+
+    ctx.fillStyle = "#02110c";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // soft screen glow
+    const glow = ctx.createRadialGradient(
+      580,
+      360,
+      30,
+      580,
+      360,
+      620
+    );
+    glow.addColorStop(0, "rgba(0,255,157,.18)");
+    glow.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.strokeStyle = "#00ff9d";
+    ctx.lineWidth = 3;
+    ctx.strokeRect(20, 20, canvas.width - 40, canvas.height - 40);
+
+    ctx.fillStyle = "#00ffb0";
+    ctx.font = "700 26px monospace";
+    ctx.fillText("TERMINAL://OPERATOR", 55, 62);
+
+    ctx.fillStyle = "#6a8d80";
+    ctx.font = "18px monospace";
+    ctx.fillText("SECURE SESSION  UT-01", 780, 62);
+
+    const lines = [
+      "> initializing secure session...",
+      "> verifying encrypted channel...",
+      "> mounting remote node...",
+      "> scanning network perimeter...",
+      "> inspecting packet stream...",
+      "> firewall        ACTIVE",
+      "> encryption      AES-256",
+      "> threat-level    LOW",
+      "> nodes           17",
+      "> status          SECURE",
+      "",
+      "operator@ut-01:~$ _",
+    ];
+
+    lines.forEach((line, i) => {
+      ctx.fillStyle =
+        i === lines.length - 1 ? "#caffea" : "#4be3ab";
+      ctx.font = i < 5 ? "18px monospace" : "17px monospace";
+      ctx.fillText(line, 55, 120 + i * 45);
+    });
+
+    ctx.strokeStyle = "rgba(0,255,157,.35)";
+    ctx.strokeRect(850, 115, 280, 400);
+
+    const stats = [
+      ["FIREWALL", "ACTIVE"],
+      ["ENCRYPT", "AES-256"],
+      ["THREAT", "LOW"],
+      ["NODES", "17"],
+      ["STATUS", "SECURE"],
+    ];
+
+    stats.forEach(([label, value], i) => {
+      ctx.fillStyle = "#6aa494";
+      ctx.font = "16px monospace";
+      ctx.fillText(label, 880, 165 + i * 62);
+
+      ctx.fillStyle = "#00ff9d";
+      ctx.fillText(value, 1030, 165 + i * 62);
+    });
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.anisotropy = 4;
+    texture.needsUpdate = true;
+
+    return texture;
+  }, []);
+}
+
+/* -------------------------------------------------------
+   LIGHT
+------------------------------------------------------- */
+
+function RoomLight({
+  position,
+  color,
+  intensity,
+  distance,
+}) {
   return (
-    <Html
-      transform
-      position={[0, 1.0, -0.125]}
-      rotation={[0, 0, 0]}
-      distanceFactor={1.55}
-      occlude={false}
-      zIndexRange={[10, 20]}
-    >
-      <div className="operator-monitor-ui">
-        <div className="monitor-ui-top">
-          <span>TERMINAL://OPERATOR</span>
-          <b>● SECURE</b>
-        </div>
-
-        <div className="monitor-ui-body">
-          <div className="monitor-command">
-            <p>&gt; initializing secure session...</p>
-            <p>&gt; verifying encrypted channel...</p>
-            <p>&gt; tracing network nodes...</p>
-            <p>&gt; mapping active perimeter...</p>
-            <p>&gt; endpoint handshake complete</p>
-            <p>&gt; secure tunnel established</p>
-            <p>&gt; monitoring packets...</p>
-            <p className="cursor-line">
-              operator@unseen:~$ <span>_</span>
-            </p>
-          </div>
-
-          <div className="monitor-stats">
-            <span>FIREWALL <b>ACTIVE</b></span>
-            <span>ENCRYPTION <b>AES-256</b></span>
-            <span>TRACE <b>LIVE</b></span>
-            <span>NODES <b>17</b></span>
-            <span>STATUS <b>SECURE</b></span>
-          </div>
-        </div>
-      </div>
-    </Html>
+    <pointLight
+      position={position}
+      color={color}
+      intensity={intensity}
+      distance={distance}
+      decay={2}
+    />
   );
 }
 
-function KeyboardKeys() {
-  const keys = useMemo(() => {
-    const items = [];
-    for (let row = 0; row < 4; row += 1) {
-      for (let col = 0; col < 11; col += 1) {
-        items.push(
-          <mesh
-            key={`${row}-${col}`}
-            position={[
-              -0.66 + col * 0.13,
-              0.19,
-              0.08 + row * 0.085,
-            ]}
-          >
-            <boxGeometry args={[0.095, 0.025, 0.055]} />
-            <meshStandardMaterial
-              color={row === 3 ? "#13382e" : "#0b1110"}
-              roughness={0.35}
-              metalness={0.55}
-              emissive={row === 3 ? "#00ff9c" : "#003a29"}
-              emissiveIntensity={row === 3 ? 0.45 : 0.16}
-            />
-          </mesh>
-        );
-      }
+/* -------------------------------------------------------
+   FLOOR GRID
+------------------------------------------------------- */
+
+function FloorGrid() {
+  const object = useMemo(() => {
+    const group = new THREE.Group();
+
+    const material = new THREE.LineBasicMaterial({
+      color: "#08775b",
+      transparent: true,
+      opacity: 0.38,
+    });
+
+    for (let x = -5; x <= 5; x += 1) {
+      const geometry = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(x, FLOOR_Y + 0.012, -4),
+        new THREE.Vector3(x, FLOOR_Y + 0.012, 4),
+      ]);
+
+      group.add(new THREE.Line(geometry, material));
     }
-    return items;
+
+    for (let z = -4; z <= 4; z += 1) {
+      const geometry = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(-5, FLOOR_Y + 0.012, z),
+        new THREE.Vector3(5, FLOOR_Y + 0.012, z),
+      ]);
+
+      group.add(new THREE.Line(geometry, material));
+    }
+
+    return group;
   }, []);
 
-  return <group>{keys}</group>;
+  return <primitive object={object} />;
 }
 
-export default function OperatorScene({
-  active = false,
-  running = false,
-  replayKey = 0,
-  sequenceRef,
-}) {
-  const group = useRef();
-  const roomGlow = useRef();
-  const { camera } = useThree();
+/* -------------------------------------------------------
+   SERVER RACK
+------------------------------------------------------- */
 
-  const { scene, animations } = useGLTF(
-    "/models/operator/operator.glb"
+function ServerRack({ position }) {
+  return (
+    <group position={position}>
+      <mesh
+        position={[0, 1.05, 0]}
+        castShadow
+        receiveShadow
+      >
+        <boxGeometry args={[0.78, 2.8, 0.72]} />
+        <meshStandardMaterial
+          color="#17262a"
+          roughness={0.5}
+          metalness={0.55}
+        />
+      </mesh>
+
+      {[0.3, 0.72, 1.14, 1.56, 1.98].map(
+        (y, index) => (
+          <group key={y}>
+            <mesh position={[0, y, 0.37]}>
+              <boxGeometry
+                args={[0.57, 0.21, 0.02]}
+              />
+              <meshStandardMaterial
+                color="#0b1518"
+                roughness={0.35}
+                metalness={0.65}
+              />
+            </mesh>
+
+            <mesh
+              position={[-0.2, y, 0.395]}
+            >
+              <boxGeometry
+                args={[0.025, 0.025, 0.025]}
+              />
+              <meshBasicMaterial
+                color={
+                  index % 2
+                    ? "#ff174f"
+                    : "#00ff9d"
+                }
+              />
+            </mesh>
+
+            <mesh
+              position={[0.05, y, 0.395]}
+            >
+              <boxGeometry
+                args={[0.24, 0.015, 0.015]}
+              />
+              <meshBasicMaterial
+                color="#78eac4"
+              />
+            </mesh>
+          </group>
+        )
+      )}
+    </group>
   );
+}
+
+/* -------------------------------------------------------
+   GAMING CHAIR
+   Important: chair is a separate model.
+------------------------------------------------------- */
+
+function GamingChair() {
+  const { scene } = useGLTF(CHAIR_MODEL);
 
   useEffect(() => {
     if (!scene) return;
+
+    // Avoid repeatedly multiplying scale/position on HMR.
+    scene.position.set(0.15, 0, CHAIR_Z);
+    scene.rotation.set(0, 0, 0);
+    scene.scale.setScalar(1.08);
+
+    // Auto-seat the GLB on the real floor even if its exported origin
+    // is above/below the mesh. This is what prevents the chair from
+    // disappearing into the floor.
+    scene.updateMatrixWorld(true);
+    const bounds = new THREE.Box3().setFromObject(scene);
+    if (Number.isFinite(bounds.min.y)) {
+      scene.position.y += FLOOR_Y - bounds.min.y;
+    }
 
     scene.traverse((object) => {
       if (!object.isMesh) return;
@@ -104,355 +262,629 @@ export default function OperatorScene({
       object.receiveShadow = true;
 
       if (object.material) {
-        const materials = Array.isArray(object.material)
-          ? object.material
-          : [object.material];
-
-        materials.forEach((material) => {
-          material.roughness = Math.min(
-            material.roughness ?? 0.72,
-            0.72
-          );
-          material.metalness = Math.min(
-            material.metalness ?? 0.05,
-            0.35
-          );
-        });
+        object.material.roughness = 0.44;
+        object.material.metalness = 0.14;
+        if ("emissive" in object.material) {
+          object.material.emissive = new THREE.Color("#0a1714");
+          object.material.emissiveIntensity = 0.18;
+        }
       }
     });
   }, [scene]);
 
-  useEffect(() => {
-    if (!scene) return;
-
-    scene.scale.setScalar(1.42);
-    scene.position.set(-1.85, -1.25, 1.35);
-    scene.rotation.set(0, Math.PI, 0);
-  }, [scene, replayKey]);
-
-  useFrame((state, delta) => {
-    const t = state.clock.elapsedTime;
-    const phase = sequenceRef?.current?.phase ?? "standby";
-    const progress = sequenceRef?.current?.progress ?? 0;
-
-    // Cinematic camera path follows the sequence.
-    const target = new THREE.Vector3();
-    const desired = new THREE.Vector3();
-
-    if (phase === "walk") {
-      const p = THREE.MathUtils.smoothstep(progress, 0, 1);
-
-      desired.set(
-        THREE.MathUtils.lerp(-1.2, 0.75, p),
-        THREE.MathUtils.lerp(1.25, 1.05, p),
-        THREE.MathUtils.lerp(5.8, 4.65, p)
-      );
-
-      target.set(
-        THREE.MathUtils.lerp(-0.25, 0.1, p),
-        0.15,
-        -0.35
-      );
-    } else if (phase === "sit") {
-      const p = THREE.MathUtils.smoothstep(progress, 0, 1);
-
-      desired.set(
-        THREE.MathUtils.lerp(0.75, 1.05, p),
-        THREE.MathUtils.lerp(1.05, 1.18, p),
-        THREE.MathUtils.lerp(4.65, 4.15, p)
-      );
-
-      target.set(0.05, 0.15, -0.45);
-    } else if (phase === "typing") {
-      desired.set(
-        1.25 + Math.sin(t * 0.18) * 0.06,
-        1.28 + Math.sin(t * 0.24) * 0.025,
-        4.0
-      );
-
-      target.set(0, 0.38, -0.55);
-    } else {
-      desired.set(0, 1.35, 6.4);
-      target.set(0, 0.15, -0.3);
-    }
-
-    const smooth = 1 - Math.exp(-5.5 * delta);
-
-    camera.position.lerp(desired, smooth);
-    camera.lookAt(target);
-
-    if (roomGlow.current) {
-      roomGlow.current.intensity =
-        1.15 + Math.sin(t * 1.2) * 0.12;
-    }
-
-    if (group.current) {
-      group.current.rotation.y = THREE.MathUtils.lerp(
-        group.current.rotation.y,
-        Math.sin(t * 0.18) * 0.008,
-        smooth
-      );
-    }
-  });
-
   return (
-    <group ref={group}>
-      {/* ROOM FLOOR */}
+    <primitive
+      object={scene}
+      dispose={null}
+    />
+  );
+}
+
+useGLTF.preload(CHAIR_MODEL);
+
+/* -------------------------------------------------------
+   WORKSTATION
+------------------------------------------------------- */
+
+function Workstation({ screenTexture }) {
+  return (
+    <group position={[0, -0.18, DESK_Z]}>
+      {/* Main desktop */}
+      <mesh castShadow receiveShadow>
+        <boxGeometry args={[3.9, 0.18, 1.35]} />
+        <meshStandardMaterial
+          color="#26363a"
+          roughness={0.45}
+          metalness={0.38}
+        />
+      </mesh>
+
+      {/* Front panel */}
       <mesh
-        rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, -1.27, 0]}
+        position={[0, -0.42, 0.54]}
+        castShadow
         receiveShadow
       >
-        <planeGeometry args={[12, 8]} />
+        <boxGeometry args={[3.55, 0.7, 0.12]} />
         <meshStandardMaterial
-          color="#07100d"
-          roughness={0.72}
-          metalness={0.25}
+          color="#162327"
+          roughness={0.5}
+          metalness={0.3}
         />
       </mesh>
 
-      {/* BACK WALL */}
-      <mesh position={[0, 1.25, -2.65]}>
-        <boxGeometry args={[10, 5, 0.12]} />
-        <meshStandardMaterial
-          color="#06100c"
-          roughness={0.86}
-          metalness={0.12}
-        />
-      </mesh>
-
-      {/* ROOM GRID */}
-      {[-3, -2, -1, 0, 1, 2, 3].map((x) => (
-        <mesh key={`gx-${x}`} position={[x, 0.01, -1.9]}>
-          <boxGeometry args={[0.012, 0.012, 5.8]} />
-          <meshBasicMaterial color="#073f2c" />
-        </mesh>
-      ))}
-
-      {[-3, -2, -1, 0, 1, 2].map((z) => (
-        <mesh key={`gz-${z}`} position={[0, 0.012, z - 0.3]}>
-          <boxGeometry args={[8, 0.012, 0.012]} />
-          <meshBasicMaterial color="#073f2c" />
-        </mesh>
-      ))}
-
-      {/* SERVER RACKS */}
-      {[-3.65, 3.65].map((x) => (
-        <group key={x} position={[x, 0.25, -1.85]}>
-          <mesh>
-            <boxGeometry args={[0.75, 3.0, 1.05]} />
-            <meshStandardMaterial
-              color="#080b0b"
-              roughness={0.62}
-              metalness={0.7}
-            />
-          </mesh>
-
-          {[-0.95, -0.45, 0.05, 0.55, 1.05].map((y, i) => (
-            <group key={i}>
-              <mesh position={[0, y, 0.54]}>
-                <boxGeometry args={[0.55, 0.025, 0.015]} />
-                <meshBasicMaterial color="#00ff9c" />
-              </mesh>
-              <mesh position={[0.2, y + 0.08, 0.55]}>
-                <sphereGeometry args={[0.018, 8, 8]} />
-                <meshBasicMaterial color="#ff003c" />
-              </mesh>
-            </group>
-          ))}
-        </group>
-      ))}
-
-      {/* CEILING LIGHTS */}
-      {[-2.2, 0, 2.2].map((x) => (
-        <mesh key={x} position={[x, 3.1, -1.2]}>
-          <boxGeometry args={[0.06, 0.06, 3.6]} />
-          <meshBasicMaterial color="#7affc7" />
-        </mesh>
-      ))}
-
-      {/* DESK */}
-      <group position={[0, -0.25, -1.15]}>
-        <mesh castShadow receiveShadow>
-          <boxGeometry args={[3.55, 0.18, 1.28]} />
-          <meshStandardMaterial
-            color="#0a0d0d"
-            roughness={0.48}
-            metalness={0.58}
-          />
-        </mesh>
-
-        <mesh position={[0, -0.02, 0.63]}>
-          <boxGeometry args={[3.45, 0.045, 0.035]} />
-          <meshBasicMaterial color="#ff003c" />
-        </mesh>
-
-        <mesh position={[0, -0.88, 0]}>
-          <boxGeometry args={[0.18, 1.45, 0.18]} />
-          <meshStandardMaterial
-            color="#101414"
-            metalness={0.75}
-            roughness={0.3}
-          />
-        </mesh>
-
-        {/* MONITOR BODY */}
+      {/* Desk legs */}
+      {[-1.63, 1.63].map((x) => (
         <mesh
-          position={[0, 1.02, -0.31]}
+          key={x}
+          position={[x, -1.02, 0]}
           castShadow
+          receiveShadow
         >
-          <boxGeometry args={[2.15, 1.18, 0.14]} />
-          <meshStandardMaterial
-            color="#050707"
-            roughness={0.25}
-            metalness={0.8}
+          <boxGeometry
+            args={[0.16, 1.55, 1.04]}
           />
-        </mesh>
-
-        {/* MONITOR BEZEL */}
-        <mesh position={[0, 1.02, -0.235]}>
-          <planeGeometry args={[1.91, 0.94]} />
-          <meshBasicMaterial color="#00140d" />
-        </mesh>
-
-        <TerminalScreen />
-
-        {/* MONITOR STAND */}
-        <mesh position={[0, 0.42, -0.31]}>
-          <boxGeometry args={[0.16, 0.5, 0.16]} />
           <meshStandardMaterial
-            color="#242b2a"
-            metalness={0.82}
-            roughness={0.25}
-          />
-        </mesh>
-
-        {/* KEYBOARD */}
-        <mesh position={[0, 0.14, 0.22]}>
-          <boxGeometry args={[1.65, 0.09, 0.55]} />
-          <meshStandardMaterial
-            color="#090d0d"
-            roughness={0.38}
-            metalness={0.65}
-          />
-        </mesh>
-
-        <KeyboardKeys />
-
-        {/* MOUSE */}
-        <mesh position={[1.02, 0.17, 0.19]}>
-          <boxGeometry args={[0.25, 0.06, 0.36]} />
-          <meshStandardMaterial
-            color="#0a1110"
-            roughness={0.3}
-            metalness={0.7}
-            emissive="#003d29"
-            emissiveIntensity={0.35}
-          />
-        </mesh>
-      </group>
-
-      {/* CHAIR */}
-      <group position={[0, -0.35, 0.02]}>
-        <mesh castShadow>
-          <boxGeometry args={[1.2, 0.18, 1.05]} />
-          <meshStandardMaterial
-            color="#111616"
-            roughness={0.55}
-            metalness={0.35}
-          />
-        </mesh>
-
-        <mesh position={[0, 0.78, -0.42]} castShadow>
-          <boxGeometry args={[1.15, 1.45, 0.16]} />
-          <meshStandardMaterial
-            color="#0b1110"
+            color="#1b292d"
             roughness={0.5}
-            metalness={0.35}
+            metalness={0.48}
+          />
+        </mesh>
+      ))}
+
+      {/* Neon desk edge */}
+      <mesh position={[0, -0.09, 0.69]}>
+        <boxGeometry
+          args={[3.56, 0.04, 0.028]}
+        />
+        <meshBasicMaterial color="#ff174f" />
+      </mesh>
+
+      {/* Monitor outer body */}
+      <mesh
+        position={[0, 1.04, -0.27]}
+        castShadow
+      >
+        <boxGeometry
+          args={[2.28, 1.38, 0.14]}
+        />
+        <meshStandardMaterial
+          color="#101b1e"
+          roughness={0.3}
+          metalness={0.7}
+        />
+      </mesh>
+
+      {/* Monitor screen */}
+      <mesh position={[0, 1.04, -0.188]}>
+        <planeGeometry args={[2.04, 1.14]} />
+        <meshStandardMaterial
+          map={screenTexture || undefined}
+          emissive="#00ff9d"
+          emissiveIntensity={0.32}
+          roughness={0.25}
+          metalness={0}
+        />
+      </mesh>
+
+      {/* Monitor stand */}
+      <mesh
+        position={[0, 0.34, -0.27]}
+        castShadow
+      >
+        <boxGeometry
+          args={[0.16, 0.52, 0.18]}
+        />
+        <meshStandardMaterial
+          color="#52656c"
+          metalness={0.8}
+          roughness={0.22}
+        />
+      </mesh>
+
+      {/* Monitor base */}
+      <mesh
+        position={[0, 0.08, -0.27]}
+        castShadow
+      >
+        <boxGeometry
+          args={[0.74, 0.08, 0.4]}
+        />
+        <meshStandardMaterial
+          color="#2b3b40"
+          metalness={0.62}
+          roughness={0.3}
+        />
+      </mesh>
+
+      {/* Keyboard */}
+      <group position={[0, 0.14, 0.2]}>
+        <mesh castShadow>
+          <boxGeometry
+            args={[1.58, 0.08, 0.5]}
+          />
+          <meshStandardMaterial
+            color="#34484d"
+            roughness={0.35}
+            metalness={0.4}
           />
         </mesh>
 
-        <mesh position={[0, -0.68, 0]}>
-          <cylinderGeometry args={[0.075, 0.075, 1.25, 12]} />
+        {Array.from({ length: 5 }).map(
+          (_, row) =>
+            Array.from({ length: 10 }).map(
+              (__, col) => (
+                <mesh
+                  key={`${row}-${col}`}
+                  position={[
+                    -0.63 + col * 0.14,
+                    0.055,
+                    -0.16 + row * 0.075,
+                  ]}
+                >
+                  <boxGeometry
+                    args={[0.09, 0.025, 0.055]}
+                  />
+                  <meshStandardMaterial
+                    color="#b9ffe8"
+                    emissive="#00ff9d"
+                    emissiveIntensity={0.14}
+                  />
+                </mesh>
+              )
+            )
+        )}
+      </group>
+
+      {/* Mouse */}
+      <mesh
+        position={[0.98, 0.16, 0.21]}
+        castShadow
+      >
+        <sphereGeometry
+          args={[0.15, 20, 12]}
+        />
+        <meshStandardMaterial
+          color="#26373c"
+          metalness={0.6}
+          roughness={0.28}
+        />
+      </mesh>
+
+      {/* CPU */}
+      <group position={[1.42, 0.52, -0.2]}>
+        <mesh castShadow receiveShadow>
+          <boxGeometry
+            args={[0.5, 1.02, 0.6]}
+          />
           <meshStandardMaterial
-            color="#303938"
-            metalness={0.85}
-            roughness={0.24}
+            color="#1a292d"
+            roughness={0.42}
+            metalness={0.6}
           />
         </mesh>
 
-        <mesh
-          rotation={[Math.PI / 2, 0, 0]}
-          position={[0, -1.28, 0]}
-        >
-          <cylinderGeometry args={[0.7, 0.7, 0.09, 18]} />
-          <meshStandardMaterial
-            color="#171d1c"
-            metalness={0.78}
-            roughness={0.28}
+        <mesh position={[0, 0.22, 0.31]}>
+          <boxGeometry
+            args={[0.28, 0.014, 0.014]}
           />
+          <meshBasicMaterial color="#00ff9d" />
+        </mesh>
+
+        <mesh position={[0, 0.05, 0.31]}>
+          <boxGeometry
+            args={[0.07, 0.07, 0.014]}
+          />
+          <meshBasicMaterial color="#ff174f" />
         </mesh>
       </group>
 
-      {/* OPERATOR */}
-      <primitive object={scene} />
-
-      {/* LIGHTING */}
-      <ambientLight intensity={0.48} />
-
-      <hemisphereLight
-        skyColor="#0d5b43"
-        groundColor="#020404"
-        intensity={0.65}
-      />
-
-      <pointLight
-        ref={roomGlow}
-        position={[0, 2.2, -0.5]}
-        color="#00ff9c"
-        intensity={1.2}
-        distance={8}
-      />
-
-      <pointLight
-        position={[-3.3, 1.2, -1.5]}
-        color="#00ff9c"
-        intensity={3}
-        distance={5}
-      />
-
-      <pointLight
-        position={[3.3, 1.2, -1.5]}
-        color="#00ff9c"
-        intensity={3}
-        distance={5}
-      />
-
-      <pointLight
-        position={[0, 0.5, 0.4]}
-        color="#ff003c"
-        intensity={1.5}
+      {/* Local green desk light */}
+      <RoomLight
+        position={[0, 0.8, -0.05]}
+        color="#00ff9d"
+        intensity={1.0}
         distance={4}
-      />
-
-      <directionalLight
-        position={[2, 5, 4]}
-        intensity={1.25}
-        castShadow
-        shadow-mapSize-width={1024}
-        shadow-mapSize-height={1024}
-      />
-
-      <OperatorController
-        scene={scene}
-        animations={animations}
-        active={active}
-        running={running}
-        replayKey={replayKey}
-        sequenceRef={sequenceRef}
       />
     </group>
   );
 }
 
-useGLTF.preload("/models/operator/operator.glb");
+/* -------------------------------------------------------
+   CINEMATIC CAMERA
+------------------------------------------------------- */
+
+function CameraRig({ phase, manualCamera = false }) {
+  const { camera, size } = useThree();
+
+  const desired = useRef(
+    new THREE.Vector3()
+  );
+
+  const target = useRef(
+    new THREE.Vector3()
+  );
+
+  const look = useRef(
+    new THREE.Vector3()
+  );
+
+  useFrame((_, delta) => {
+    if (manualCamera) return;
+
+    const mobile = size.width < 700;
+
+    // Stable damping: smooth but not floaty.
+    const damping =
+      1 - Math.exp(-4.2 * Math.min(delta, 0.05));
+
+    if (phase === "walk") {
+      if (mobile) {
+        desired.current.set(2.9, 1.35, 4.7);
+        target.current.set(0.1, -0.35, -0.15);
+        camera.fov = THREE.MathUtils.lerp(
+          camera.fov,
+          43,
+          damping
+        );
+      } else {
+        desired.current.set(4.25, 1.9, 4.9);
+        target.current.set(0.15, -0.45, -0.15);
+        camera.fov = THREE.MathUtils.lerp(
+          camera.fov,
+          41,
+          damping
+        );
+      }
+    } else if (phase === "sit") {
+      if (mobile) {
+        desired.current.set(2.65, 1.3, 3.8);
+        target.current.set(0, -0.1, -0.55);
+        camera.fov = THREE.MathUtils.lerp(
+          camera.fov,
+          42,
+          damping
+        );
+      } else {
+        desired.current.set(3.35, 1.6, 4.2);
+        target.current.set(0, -0.2, -0.55);
+        camera.fov = THREE.MathUtils.lerp(
+          camera.fov,
+          38,
+          damping
+        );
+      }
+    } else if (phase === "type") {
+      if (mobile) {
+        desired.current.set(2.25, 1.25, 3.25);
+        target.current.set(0, 0.25, -0.8);
+        camera.fov = THREE.MathUtils.lerp(
+          camera.fov,
+          39,
+          damping
+        );
+      } else {
+        desired.current.set(3.05, 1.55, 4.0);
+        target.current.set(0, 0.15, -0.85);
+        camera.fov = THREE.MathUtils.lerp(
+          camera.fov,
+          36,
+          damping
+        );
+      }
+    } else {
+      if (mobile) {
+        desired.current.set(0, 1.25, 5.1);
+        target.current.set(0, 0, -0.65);
+        camera.fov = THREE.MathUtils.lerp(
+          camera.fov,
+          45,
+          damping
+        );
+      } else {
+        desired.current.set(0, 1.45, 6.3);
+        target.current.set(0, 0, -0.7);
+        camera.fov = THREE.MathUtils.lerp(
+          camera.fov,
+          40,
+          damping
+        );
+      }
+    }
+
+    camera.position.lerp(
+      desired.current,
+      damping
+    );
+
+    look.current.lerp(target.current, damping);
+
+    camera.lookAt(look.current);
+    camera.updateProjectionMatrix();
+  });
+
+  return null;
+}
+
+/* -------------------------------------------------------
+   MAIN OPERATOR SCENE
+------------------------------------------------------- */
+
+export default function OperatorScene({
+  active = false,
+  playing = false,
+  replayKey = 0,
+  onPhaseChange,
+}) {
+  const { scene, animations } =
+    useGLTF(OPERATOR_MODEL);
+
+  const [phase, setPhase] = useState("idle");
+  const [manualCamera, setManualCamera] = useState(false);
+
+  const screenTexture =
+    useTerminalTexture();
+
+  // Replay/Start returns the camera to the cinematic position.
+  useEffect(() => {
+    if (playing) setManualCamera(false);
+  }, [playing, replayKey]);
+
+  const operatorRoot = useRef(null);
+
+  useEffect(() => {
+    if (!scene) return;
+
+    // IMPORTANT: the controller moves the outer group.
+    // Keep the GLTF itself at a fixed local origin so root-motion
+    // inside the animation cannot push the character through props.
+    scene.position.set(0, 0, 0);
+
+    scene.rotation.set(0, 0, 0);
+
+    scene.scale.setScalar(1.55);
+
+    scene.traverse((object) => {
+      if (!object.isMesh) return;
+
+      object.castShadow = true;
+      object.receiveShadow = true;
+
+      if (object.material) {
+        object.material.roughness = 0.58;
+        object.material.metalness = 0.08;
+      }
+    });
+  }, [scene]);
+
+  const handlePhase = (next) => {
+    setPhase(next);
+    onPhaseChange?.(next);
+  };
+
+  return (
+    <>
+      {/* Room background */}
+      <color
+        attach="background"
+        args={["#06100c"]}
+      />
+
+      {/* Main fill */}
+      <ambientLight
+        intensity={1.15}
+        color="#b9ffe9"
+      />
+
+      <hemisphereLight
+        args={[
+          "#07543d",
+          "#07100d",
+          1.15,
+        ]}
+      />
+
+      {/* One main shadow light only */}
+      <directionalLight
+        position={[4, 7, 5]}
+        intensity={2.0}
+        color="#e7fff6"
+        castShadow
+        shadow-mapSize-width={1024}
+        shadow-mapSize-height={1024}
+        shadow-camera-near={0.5}
+        shadow-camera-far={25}
+        shadow-camera-left={-8}
+        shadow-camera-right={8}
+        shadow-camera-top={8}
+        shadow-camera-bottom={-8}
+      />
+
+      {/* Green key light */}
+      <RoomLight
+        position={[-3.8, 2.8, 0.2]}
+        color="#00ff9d"
+        intensity={4.0}
+        distance={8}
+      />
+
+      {/* Red rim light */}
+      <RoomLight
+        position={[3.8, 2.5, -2.4]}
+        color="#ff174f"
+        intensity={2.3}
+        distance={7}
+      />
+
+      {/* Ceiling green wash */}
+      <RoomLight
+        position={[0, 3.5, -2.7]}
+        color="#00dca0"
+        intensity={2.8}
+        distance={7}
+      />
+
+      {/* Character fill */}
+      <RoomLight
+        position={[0, 0.2, 1.8]}
+        color="#42ffd0"
+        intensity={1.8}
+        distance={5}
+      />
+
+      {/* Floor */}
+      <mesh
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, FLOOR_Y, 0]}
+        receiveShadow
+      >
+        <planeGeometry args={[11, 8]} />
+        <meshStandardMaterial
+          color="#18272a"
+          roughness={0.68}
+          metalness={0.2}
+        />
+      </mesh>
+
+      <FloorGrid />
+
+      {/* Back wall */}
+      <mesh
+        position={[0, 1.5, -3.65]}
+        receiveShadow
+      >
+        <boxGeometry
+          args={[11, 5.5, 0.18]}
+        />
+        <meshStandardMaterial
+          color="#111d1d"
+          roughness={0.78}
+          metalness={0.12}
+        />
+      </mesh>
+
+      {/* Side walls */}
+      <mesh
+        position={[-5.35, 1.5, 0]}
+        receiveShadow
+      >
+        <boxGeometry
+          args={[0.18, 5.5, 7.5]}
+        />
+        <meshStandardMaterial
+          color="#0e1b1a"
+          roughness={0.8}
+          metalness={0.1}
+        />
+      </mesh>
+
+      <mesh
+        position={[5.35, 1.5, 0]}
+        receiveShadow
+      >
+        <boxGeometry
+          args={[0.18, 5.5, 7.5]}
+        />
+        <meshStandardMaterial
+          color="#0e1b1a"
+          roughness={0.8}
+          metalness={0.1}
+        />
+      </mesh>
+
+      {/* Ceiling neon strips */}
+      {[-3.2, -1.1, 1.1, 3.2].map(
+        (x, i) => (
+          <mesh
+            key={x}
+            position={[x, 4.15, -1.5]}
+          >
+            <boxGeometry
+              args={[0.045, 0.05, 4.4]}
+            />
+            <meshBasicMaterial
+              color={
+                i % 2
+                  ? "#ff174f"
+                  : "#94ffe0"
+              }
+            />
+          </mesh>
+        )
+      )}
+
+      {/* Server racks */}
+      <ServerRack
+        position={[
+          -3.9,
+          FLOOR_Y,
+          -1.65,
+        ]}
+      />
+
+      <ServerRack
+        position={[
+          3.9,
+          FLOOR_Y,
+          -1.65,
+        ]}
+      />
+
+      {/* Workstation + chair */}
+      <Workstation
+        screenTexture={screenTexture}
+      />
+
+      <GamingChair />
+
+      {/* Chair visibility light */}
+      <RoomLight
+        position={[0.15, 0.55, 0.65]}
+        color="#39ffb0"
+        intensity={1.05}
+        distance={2.8}
+      />
+
+      {/* Operator: wrapper is the only object that is moved. */}
+      <group ref={operatorRoot} position={[0, FLOOR_Y, 2.35]} rotation={[0, Math.PI, 0]}>
+        <primitive
+          object={scene}
+          dispose={null}
+        />
+      </group>
+
+      {/* Existing animation/movement controller */}
+      <OperatorController
+        scene={scene}
+        animations={animations}
+        active={active}
+        playing={playing}
+        replayKey={replayKey}
+        root={operatorRoot}
+        onPhaseChange={handlePhase}
+      />
+
+      {/* Earth-style interactive camera: drag to orbit 360°, wheel/pinch to zoom.
+          Mounted BEFORE CameraRig so the cinematic camera wins until the user
+          actually starts dragging/zooming. */}
+      <OrbitControls
+        makeDefault
+        enabled
+        enableDamping
+        dampingFactor={0.055}
+        enablePan={false}
+        minDistance={2.6}
+        maxDistance={8.5}
+        minPolarAngle={THREE.MathUtils.degToRad(42)}
+        maxPolarAngle={THREE.MathUtils.degToRad(82)}
+        target={[0, 0.15, -0.7]}
+        onStart={() => setManualCamera(true)}
+      />
+
+      {/* Camera runs after the controls so cinematic mode has priority. */}
+      <CameraRig phase={phase} manualCamera={manualCamera} />
+    </>
+  );
+}
+
+useGLTF.preload(OPERATOR_MODEL);
