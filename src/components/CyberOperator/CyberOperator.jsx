@@ -2,7 +2,7 @@ import "./CyberOperator.css";
 
 import { useEffect, useRef, useState } from "react";
 import { Canvas } from "@react-three/fiber";
-
+import { Html } from "@react-three/drei";
 import OperatorScene from "./OperatorScene";
 
 export default function CyberOperator() {

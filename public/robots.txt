@@ -4,4 +4,4 @@ Allow: /
 
 Disallow:
 
-Sitemap: https://ut-6fo9-git-main-vidyansh-yadavs-projects-17e3f9c3.vercel.app/sitemap.xml
+Sitemap: https://ut-mocha-phi.vercel.app/sitemap.xml

@@ -360,3 +360,124 @@
     grid-template-columns: 1fr;
   }
 }
+.terminal-screen {
+  width: 100%;
+  height: 100%;
+  padding: 10px;
+  box-sizing: border-box;
+
+  background:
+    radial-gradient(
+      circle at 50% 20%,
+      rgba(0, 255, 157, 0.12),
+      transparent 55%
+    ),
+    #020807;
+
+  border: 1px solid rgba(0, 255, 157, 0.55);
+
+  box-shadow:
+    0 0 20px rgba(0, 255, 157, 0.15),
+    inset 0 0 30px rgba(0, 255, 157, 0.05);
+
+  color: #8dffd9;
+
+  font-family:
+    "JetBrains Mono",
+    "Fira Code",
+    monospace;
+
+  overflow: hidden;
+}
+
+.terminal-header {
+  height: 24px;
+
+  display: flex;
+  align-items: center;
+
+  gap: 6px;
+
+  border-bottom:
+    1px solid rgba(0, 255, 157, 0.18);
+
+  margin-bottom: 8px;
+}
+
+.terminal-dot {
+  width: 7px;
+  height: 7px;
+
+  border-radius: 50%;
+}
+
+.terminal-dot.red {
+  background: #ff174f;
+}
+
+.terminal-dot.yellow {
+  background: #ffd740;
+}
+
+.terminal-dot.green {
+  background: #00ff9d;
+}
+
+.terminal-title {
+  margin-left: 7px;
+
+  font-size: 8px;
+
+  color: rgba(180, 255, 225, 0.7);
+}
+
+.terminal-body {
+  font-size: 9px;
+  line-height: 1.65;
+}
+
+.terminal-line {
+  opacity: 0;
+  animation: terminalLine 0.3s forwards;
+}
+
+.terminal-line.scan {
+  color: #00ff9d;
+}
+
+.terminal-line.safe {
+  color: #63ffbd;
+
+  text-shadow:
+    0 0 8px rgba(0, 255, 157, 0.6);
+}
+
+.terminal-command {
+  margin-top: 8px;
+
+  color: #d7fff0;
+
+  text-shadow:
+    0 0 8px rgba(0, 255, 157, 0.45);
+}
+
+.cursor {
+  margin-left: 4px;
+
+  color: #00ff9d;
+
+  text-shadow:
+    0 0 8px #00ff9d;
+}
+
+@keyframes terminalLine {
+  from {
+    opacity: 0;
+    transform: translateX(-5px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}

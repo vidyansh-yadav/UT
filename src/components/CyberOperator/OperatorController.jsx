@@ -10,6 +10,28 @@ const START = new THREE.Vector3(0, FLOOR_Y, 2.35);
 const APPROACH = new THREE.Vector3(1.55, FLOOR_Y, 1.25);
 const CHAIR = new THREE.Vector3(0.15, FLOOR_Y, 0.38);
 
+// Invisible gameplay colliders. The scripted route is intentionally kept
+// outside these volumes, so the operator can never walk through furniture.
+const DESK_COLLIDER = new THREE.Box3(
+  new THREE.Vector3(-1.95, FLOOR_Y, -1.95),
+  new THREE.Vector3(1.95, 0.2, -0.55)
+);
+
+function keepOutsideBox(position, radius = 0.34) {
+  const closest = DESK_COLLIDER.clampPoint(position, new THREE.Vector3());
+  const dx = position.x - closest.x;
+  const dz = position.z - closest.z;
+  const distance = Math.hypot(dx, dz);
+
+  if (distance < radius) {
+    // Push toward the front edge of the desk instead of letting the root
+    // enter the furniture volume.
+    position.z = Math.max(position.z, DESK_COLLIDER.max.z + radius);
+  }
+
+  return position;
+}
+
 export default function OperatorController({
   scene,
   animations = [],
@@ -165,6 +187,7 @@ export default function OperatorController({
         const t = THREE.MathUtils.clamp(path.elapsed / path.duration, 0, 1);
         const eased = t * t * (3 - 2 * t);
         root.current.position.lerpVectors(path.from, path.to, eased);
+        keepOutsideBox(root.current.position);
         root.current.rotation.y = THREE.MathUtils.lerp(Math.PI, Math.PI * 0.5, eased);
 
         if (t >= 1) {
@@ -178,6 +201,7 @@ export default function OperatorController({
         const t = THREE.MathUtils.clamp(path.elapsed / path.duration, 0, 1);
         const eased = t * t * (3 - 2 * t);
         root.current.position.lerpVectors(path.from, path.to, eased);
+        keepOutsideBox(root.current.position);
         root.current.rotation.y = THREE.MathUtils.lerp(Math.PI * 0.5, Math.PI, eased);
 
         if (t >= 1) {

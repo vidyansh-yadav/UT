@@ -1,9 +1,15 @@
-import { OrbitControls, useGLTF } from "@react-three/drei";
+import {
+  useGLTF,
+  OrbitControls,
+  Environment,
+  Html,
+} from "@react-three/drei";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 
 import OperatorController from "./OperatorController";
+import TerminalScreen from "./TerminalScreen";
 
 const FLOOR_Y = -1.27;
 const DESK_Z = -1.25;
@@ -222,6 +228,22 @@ function ServerRack({ position }) {
               <meshBasicMaterial
                 color="#78eac4"
               />
+              <Html
+    transform
+    occlude
+    distanceFactor={1.15}
+    position={[0, 0, 0.02]}
+  >
+    <div
+      style={{
+        width: "430px",
+        height: "245px",
+      }}
+    >
+      <TerminalScreen />
+    </div>
+  </Html>
+
             </mesh>
           </group>
         )
@@ -494,6 +516,71 @@ function Workstation({ screenTexture }) {
    CINEMATIC CAMERA
 ------------------------------------------------------- */
 
+function CameraCollisionGuard({ manualCamera }) {
+  const { camera } = useThree();
+  const raycaster = useMemo(() => new THREE.Raycaster(), []);
+  const direction = useMemo(() => new THREE.Vector3(), []);
+  const safePosition = useMemo(() => new THREE.Vector3(), []);
+
+  // Conservative room/workstation colliders. These are invisible and only
+  // protect the camera from clipping through the main furniture/walls.
+  const colliders = useMemo(() => {
+    const boxes = [
+      new THREE.Box3(
+        new THREE.Vector3(-1.95, FLOOR_Y - 0.05, -1.95),
+        new THREE.Vector3(1.95, 0.15, -0.55)
+      ),
+      new THREE.Box3(
+        new THREE.Vector3(-2.05, FLOOR_Y, -0.65),
+        new THREE.Vector3(-1.35, 2.5, -0.05)
+      ),
+      new THREE.Box3(
+        new THREE.Vector3(1.35, FLOOR_Y, -0.65),
+        new THREE.Vector3(2.05, 2.5, -0.05)
+      ),
+      new THREE.Box3(
+        new THREE.Vector3(-5.45, FLOOR_Y, -3.9),
+        new THREE.Vector3(-5.15, 4.5, 3.9)
+      ),
+      new THREE.Box3(
+        new THREE.Vector3(5.15, FLOOR_Y, -3.9),
+        new THREE.Vector3(5.45, 4.5, 3.9)
+      ),
+      new THREE.Box3(
+        new THREE.Vector3(-5.45, FLOOR_Y, -3.85),
+        new THREE.Vector3(5.45, 4.5, -3.5)
+      ),
+    ];
+    return boxes;
+  }, []);
+
+  useFrame(() => {
+    if (!manualCamera) return;
+
+    const target = new THREE.Vector3(0, 0.1, -0.7);
+    direction.subVectors(camera.position, target);
+    const distance = direction.length();
+    if (distance < 0.001) return;
+    direction.normalize();
+
+    raycaster.set(target, direction);
+    raycaster.far = distance;
+
+    // Ray-vs-box test is approximated with a short camera clearance sphere.
+    // If the camera enters a collider, pull it back toward the target.
+    for (const box of colliders) {
+      if (box.distanceToPoint(camera.position) < 0.18) {
+        const safeDistance = Math.max(3.0, distance - 0.35);
+        safePosition.copy(target).addScaledVector(direction, safeDistance);
+        camera.position.lerp(safePosition, 0.45);
+        break;
+      }
+    }
+  });
+
+  return null;
+}
+
 function CameraRig({ phase, manualCamera = false }) {
   const { camera, size } = useThree();
 
@@ -667,8 +754,10 @@ export default function OperatorScene({
       {/* Room background */}
       <color
         attach="background"
-        args={["#06100c"]}
+        args={["#050a08"]}
       />
+
+      <fog attach="fog" args={["#050a08", 7.5, 15]} />
 
       {/* Main fill */}
       <ambientLight
@@ -740,15 +829,31 @@ export default function OperatorScene({
       >
         <planeGeometry args={[11, 8]} />
         <meshStandardMaterial
-          color="#18272a"
-          roughness={0.68}
-          metalness={0.2}
+          color="#101b1b"
+          roughness={0.5}
+          metalness={0.32}
         />
       </mesh>
 
       <FloorGrid />
 
-      {/* Back wall */}
+      {/* REALISTIC FLOOR PANELS */}
+      <group position={[0, FLOOR_Y + 0.008, 0]}>
+        {[-4.5, -3, -1.5, 0, 1.5, 3, 4.5].map((x) => (
+          <mesh key={`floor-x-${x}`} rotation={[-Math.PI / 2, 0, 0]} position={[x, 0, 0]}>
+            <planeGeometry args={[0.018, 7.8]} />
+            <meshBasicMaterial color="#123d32" transparent opacity={0.5} />
+          </mesh>
+        ))}
+        {[-3, -1.5, 0, 1.5, 3].map((z) => (
+          <mesh key={`floor-z-${z}`} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, z]}>
+            <planeGeometry args={[10.8, 0.018]} />
+            <meshBasicMaterial color="#123d32" transparent opacity={0.5} />
+          </mesh>
+        ))}
+      </group>
+
+      {/* BACK WALL */}
       <mesh
         position={[0, 1.5, -3.65]}
         receiveShadow
@@ -792,6 +897,42 @@ export default function OperatorScene({
         />
       </mesh>
 
+      {/* WALL ARCHITECTURE — makes the room feel like a real control room */}
+      {[-2.7, -1.35, 0, 1.35, 2.7].map((x, i) => (
+        <mesh key={`wall-panel-${x}`} position={[x, 1.7, -3.54]} receiveShadow>
+          <boxGeometry args={[1.12, 3.55, 0.06]} />
+          <meshStandardMaterial
+            color={i === 2 ? "#142521" : "#0b1615"}
+            roughness={0.72}
+            metalness={0.22}
+          />
+        </mesh>
+      ))}
+
+      {/* Horizontal wall light rails */}
+      <mesh position={[0, 3.25, -3.42]}>
+        <boxGeometry args={[9.3, 0.025, 0.025]} />
+        <meshBasicMaterial color="#00ff9d" />
+      </mesh>
+      <mesh position={[0, 0.28, -3.42]}>
+        <boxGeometry args={[9.3, 0.018, 0.018]} />
+        <meshBasicMaterial color="#ff174f" />
+      </mesh>
+
+      {/* Ceiling */}
+      <mesh position={[0, 4.05, 0]} receiveShadow>
+        <boxGeometry args={[10.8, 0.12, 7.5]} />
+        <meshStandardMaterial color="#091110" roughness={0.82} metalness={0.18} />
+      </mesh>
+
+      {/* Ceiling recessed panels */}
+      {[-3.2, 0, 3.2].map((x) => (
+        <mesh key={`ceiling-${x}`} position={[x, 3.98, -1.25]}>
+          <boxGeometry args={[1.8, 0.025, 2.5]} />
+          <meshStandardMaterial color="#101d1a" roughness={0.55} metalness={0.28} />
+        </mesh>
+      ))}
+
       {/* Ceiling neon strips */}
       {[-3.2, -1.1, 1.1, 3.2].map(
         (x, i) => (
@@ -830,6 +971,22 @@ export default function OperatorScene({
         ]}
       />
 
+      {/* Workstation platform / cable shadow zone */}
+      <mesh position={[0, FLOOR_Y + 0.025, -1.05]} receiveShadow>
+        <boxGeometry args={[4.65, 0.06, 2.25]} />
+        <meshStandardMaterial color="#0a1212" roughness={0.58} metalness={0.42} />
+      </mesh>
+
+      {/* Small power/cable boxes */}
+      <mesh position={[-2.65, FLOOR_Y + 0.18, -1.45]} castShadow>
+        <boxGeometry args={[0.55, 0.35, 0.48]} />
+        <meshStandardMaterial color="#152423" roughness={0.48} metalness={0.5} />
+      </mesh>
+      <mesh position={[2.65, FLOOR_Y + 0.18, -1.45]} castShadow>
+        <boxGeometry args={[0.55, 0.35, 0.48]} />
+        <meshStandardMaterial color="#152423" roughness={0.48} metalness={0.5} />
+      </mesh>
+
       {/* Workstation + chair */}
       <Workstation
         screenTexture={screenTexture}
@@ -837,12 +994,24 @@ export default function OperatorScene({
 
       <GamingChair />
 
-      {/* Chair visibility light */}
+      {/* Chair visibility + rim lights */}
       <RoomLight
         position={[0.15, 0.55, 0.65]}
         color="#39ffb0"
-        intensity={1.05}
-        distance={2.8}
+        intensity={1.35}
+        distance={3.0}
+      />
+      <RoomLight
+        position={[-1.5, 1.4, 0.9]}
+        color="#ff174f"
+        intensity={1.1}
+        distance={3.5}
+      />
+      <RoomLight
+        position={[1.8, 1.7, -1.8]}
+        color="#00ff9d"
+        intensity={1.2}
+        distance={4}
       />
 
       {/* Operator: wrapper is the only object that is moved. */}
@@ -871,15 +1040,20 @@ export default function OperatorScene({
         makeDefault
         enabled
         enableDamping
-        dampingFactor={0.055}
+        dampingFactor={0.065}
+        rotateSpeed={0.55}
+        zoomSpeed={0.7}
         enablePan={false}
-        minDistance={2.6}
-        maxDistance={8.5}
-        minPolarAngle={THREE.MathUtils.degToRad(42)}
+        minDistance={3.0}
+        maxDistance={8.0}
+        minPolarAngle={THREE.MathUtils.degToRad(40)}
         maxPolarAngle={THREE.MathUtils.degToRad(82)}
-        target={[0, 0.15, -0.7]}
+        target={[0, 0.1, -0.7]}
         onStart={() => setManualCamera(true)}
       />
+
+      {/* Keep the orbit camera outside the room geometry. */}
+      <CameraCollisionGuard manualCamera={manualCamera} />
 
       {/* Camera runs after the controls so cinematic mode has priority. */}
       <CameraRig phase={phase} manualCamera={manualCamera} />
